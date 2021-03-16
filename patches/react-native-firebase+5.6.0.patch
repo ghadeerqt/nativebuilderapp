@@ -1,0 +1,69 @@
+diff --git a/node_modules/react-native-firebase/android/src/main/java/io/invertase/firebase/RNFirebaseModule.java b/node_modules/react-native-firebase/android/src/main/java/io/invertase/firebase/RNFirebaseModule.java
+index 24f472e..7a70099 100644
+--- a/node_modules/react-native-firebase/android/src/main/java/io/invertase/firebase/RNFirebaseModule.java
++++ b/node_modules/react-native-firebase/android/src/main/java/io/invertase/firebase/RNFirebaseModule.java
+@@ -155,6 +155,13 @@ public class RNFirebaseModule extends ReactContextBaseJavaModule {
+   public Map<String, Object> getConstants() {
+     Map<String, Object> constants = new HashMap<>();
+     List<Map<String, Object>> appMapsList = new ArrayList<>();
++    try {
++      Class.forName("FirebaseApp");
++    } catch (Exception e) {
++      Log.e("RNFirebaseModule", "Firebase app not found. Did you enable the Firebase capability?");
++      Log.e("RNFirebaseModule", e.getLocalizedMessage());
++      return constants;
++    }
+     List<FirebaseApp> firebaseAppList = FirebaseApp.getApps(getReactApplicationContext());
+ 
+     // TODO no way to get client id currently from app options - firebase sdk issue
+diff --git a/node_modules/react-native-firebase/ios/RNFirebase/messaging/RNFirebaseMessaging.m b/node_modules/react-native-firebase/ios/RNFirebase/messaging/RNFirebaseMessaging.m
+index 90fdb1d..92ac092 100644
+--- a/node_modules/react-native-firebase/ios/RNFirebase/messaging/RNFirebaseMessaging.m
++++ b/node_modules/react-native-firebase/ios/RNFirebase/messaging/RNFirebaseMessaging.m
+@@ -187,8 +187,10 @@ - (void)messaging:(nonnull FIRMessaging *)messaging
+ }
+ 
+ RCT_EXPORT_METHOD(registerForRemoteNotifications:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+-    [RCTSharedApplication() registerForRemoteNotifications];
+-    resolve(nil);
++    dispatch_async(dispatch_get_main_queue(), ^{
++        [RCTSharedApplication() registerForRemoteNotifications];
++        resolve(nil);
++    });
+ }
+ 
+ // Non Web SDK methods
+diff --git a/node_modules/react-native-firebase/ios/RNFirebase/notifications/RNFirebaseNotifications.m b/node_modules/react-native-firebase/ios/RNFirebase/notifications/RNFirebaseNotifications.m
+index d3aa1e3..b35e7c2 100644
+--- a/node_modules/react-native-firebase/ios/RNFirebase/notifications/RNFirebaseNotifications.m
++++ b/node_modules/react-native-firebase/ios/RNFirebase/notifications/RNFirebaseNotifications.m
+@@ -102,17 +102,19 @@ - (void)didReceiveLocalNotification:(nonnull UILocalNotification *)localNotifica
+ 
+ RCT_EXPORT_METHOD(complete:(NSString*)handlerKey fetchResult:(UIBackgroundFetchResult)fetchResult) {
+     if (handlerKey != nil) {
+-        void (^fetchCompletionHandler)(UIBackgroundFetchResult) = fetchCompletionHandlers[handlerKey];
+-        if (fetchCompletionHandler != nil) {
+-            fetchCompletionHandlers[handlerKey] = nil;
+-            fetchCompletionHandler(fetchResult);
+-        } else {
+-            void(^completionHandler)(void) = completionHandlers[handlerKey];
+-            if (completionHandler != nil) {
+-                completionHandlers[handlerKey] = nil;
+-                completionHandler();
++        dispatch_async(dispatch_get_main_queue(), ^{
++            void (^fetchCompletionHandler)(UIBackgroundFetchResult) = fetchCompletionHandlers[handlerKey];
++            if (fetchCompletionHandler != nil) {
++                fetchCompletionHandlers[handlerKey] = nil;
++                fetchCompletionHandler(fetchResult);
++            } else {
++                void(^completionHandler)(void) = completionHandlers[handlerKey];
++                if (completionHandler != nil) {
++                    completionHandlers[handlerKey] = nil;
++                    completionHandler();
++                }
+             }
+-        }
++        });
+     }
+ }
+ 
